@@ -125,6 +125,15 @@ public class MagicEntry {
 		return sb.toString();
 	}
 
+	public String toString2() {
+		return toString() + ",addOffset " + addOffset +
+			",offset " + offset + ",offsetInfo " + offsetInfo + 
+			",matcher " + matcher.getClass().getSimpleName() + 
+			",andValue " + andValue + ",unsignedType " + unsignedType + 
+			",formatSpacePrefix " + formatSpacePrefix +
+			",clearFormat " + clearFormat;
+	}
+
 	/**
 	 * Main processing method which can go recursive.
 	 */

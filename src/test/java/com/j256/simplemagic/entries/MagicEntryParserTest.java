@@ -2,6 +2,7 @@ package com.j256.simplemagic.entries;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
@@ -109,6 +110,71 @@ public class MagicEntryParserTest {
 		error = new LocalErrorCallBack();
 		assertNull(MagicEntryParser.parseLine(prev, "!:    ", error));
 		assertNotNull(error.details);
+	}
+	
+	@Test
+	public void testSimpleCorrect() {
+		MagicEntry ent = MagicEntryParser.parseLine(null, "0   string   SONG   Format", null);
+		assertEquals("level 0,name 'Format',test 'SONG',format 'Format'", ent.toString());
+	}
+	
+	@Test
+	public void testBackspace() {
+		MagicEntry ent = MagicEntryParser.parseLine(
+				null, ">6	string		Exif		\b, EXIF standard", null);
+		assertEquals("level 1,name ',',test 'Exif',format ', EXIF standard'," +
+				"level 1,addOffset false,offset 6,offsetInfo null,matcher StringType," +
+				"andValue null,unsignedType false,formatSpacePrefix false,clearFormat false", 
+				ent.toString2());
+	}
+	
+	@Test
+	public void testSplitLine() {
+		String[] parts = MagicEntryParser.splitLine("1 2 3 4", 4);
+		assertEquals(4, parts.length);
+		assertEquals("1", parts[0]);
+		assertEquals("2", parts[1]);
+		assertEquals("3", parts[2]);
+		assertEquals("4", parts[3]);
+		parts = MagicEntryParser.splitLine("1\\n 2\\t 3\\b 4\\\\", 4);
+		assertEquals(4, parts.length);
+		assertEquals("1\n", parts[0]);
+		assertEquals("2\t", parts[1]);
+		assertEquals("3\b", parts[2]);
+		assertEquals("4\\", parts[3]);		
+		parts = MagicEntryParser.splitLine("1\\007 2\\377 3\\xff 4\\x00", 4);
+		assertEquals(4, parts.length);
+		assertEquals("1\007", parts[0]);
+		assertEquals("2\377", parts[1]);
+		assertEquals("3\377", parts[2]);
+		assertEquals("4\000", parts[3]);	
+		parts = MagicEntryParser.splitLine("1\\ 2\\t3", 4);
+		assertEquals(1, parts.length);
+		assertEquals("1 2\t3", parts[0]);
+		parts = MagicEntryParser.splitLine("1 2 3 4 5 6", 4);
+		assertEquals(4, parts.length);
+		assertEquals("1", parts[0]);
+		assertEquals("2", parts[1]);
+		assertEquals("3", parts[2]);
+		assertEquals("4 5 6", parts[3]);
+		parts = MagicEntryParser.splitLine(" 1  2  3  4  5  6 ", 4);
+		assertEquals(4, parts.length);
+		assertEquals("1", parts[0]);
+		assertEquals("2", parts[1]);
+		assertEquals("3", parts[2]);
+		assertEquals("4  5  6 ", parts[3]);
+		parts = MagicEntryParser.splitLine(">6	string		Exif		\b, EXIF standard", 4);
+		assertEquals(4, parts.length);
+		assertEquals(">6", parts[0]);
+		assertEquals("string", parts[1]);
+		assertEquals("Exif", parts[2]);
+		assertEquals("\b, EXIF standard", parts[3]);
+		parts = MagicEntryParser.splitLine(">6	string		Exif		\\b, EXIF standard", 4);
+		assertEquals(4, parts.length);
+		assertEquals(">6", parts[0]);
+		assertEquals("string", parts[1]);
+		assertEquals("Exif", parts[2]);
+		assertEquals("\b, EXIF standard", parts[3]);
 	}
 
 	private static class LocalErrorCallBack implements ErrorCallBack {

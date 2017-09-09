@@ -1,5 +1,6 @@
 package com.j256.simplemagic.entries;
 
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +31,20 @@ public class MagicEntryParser {
 		if (line.startsWith("!:")) {
 			if (previous != null) {
 				// we ignore it if there is no previous entry to add it to
-				handleSpecial(previous, line, errorCallBack);
+				String[] extParts = splitLine(line, 3);
+				if (extParts.length < 2) {
+					if (errorCallBack != null) {
+						errorCallBack.error(line, 
+								"invalid extension line has less than 2 whitespace separated fields",
+								null);
+					}
+				} else {
+					if (extParts[0].equals(MIME_TYPE_LINE)) {
+						previous.setMimeType(extParts[1]);
+					} else {
+						// unknown extension key
+					}
+				}
 			}
 			return null;
 		}
@@ -40,9 +54,13 @@ public class MagicEntryParser {
 		// >5[ ]byte[ ]x[ ]\b, version %c
 		// >7[ ]byte[ ]x[ ]\b.%c
 
-		// unfortunately, we cannot use split or even regex since the whitespace is not reliable (grumble)
-		String[] parts = splitLine(line, errorCallBack);
-		if (parts == null) {
+		String[] parts = splitLine(line, 4);
+		if (parts.length < 4) {
+			if (errorCallBack != null) {
+				errorCallBack.error(line, 
+						"invalid number of whitespace separated fields, must be >= 4", 
+						null);
+			}
 			return null;
 		}
 
@@ -159,16 +177,12 @@ public class MagicEntryParser {
 			name = UNKNOWN_NAME;
 		} else {
 			String format = parts[3];
-			// a starting \\b or ^H means don't prepend a space when chaining content details
-			if (format.startsWith("\\b")) {
-				format = format.substring(2);
-				formatSpacePrefix = false;
-			} else if (format.startsWith("\010")) {
-				// NOTE: sometimes the \b is expressed as a ^H character (grumble)
+			// a starting \b means don't prepend a space when chaining content details
+			if (format.startsWith("\b")) {
 				format = format.substring(1);
 				formatSpacePrefix = false;
-			} else if (format.startsWith("\\r")) {
-				format = format.substring(2);
+			} else if (format.startsWith("\r")) {
+				format = format.substring(1);
 				clearFormat = true;
 			}
 			formatter = new MagicFormatter(format);
@@ -186,134 +200,105 @@ public class MagicEntryParser {
 				name = trimmedFormat;
 			}
 		}
-		MagicEntry entry = new MagicEntry(name, level, addOffset, offset, offsetInfo, matcher, andValue, unsignedType,
+		MagicEntry entry = new MagicEntry(
+				name, level, addOffset, offset, offsetInfo, matcher, andValue, unsignedType,
 				testValue, formatSpacePrefix, clearFormat, formatter);
 		return entry;
 	}
-
-	private static String[] splitLine(String line, ErrorCallBack errorCallBack) {
-		// skip opening whitespace if any
-		int startPos = findNonWhitespace(line, 0);
-		if (startPos < 0) {
-			return null;
-		}
-
-		// find the level info
-		int endPos = findWhitespaceWithoutEscape(line, startPos);
-		if (endPos < 0) {
-			if (errorCallBack != null) {
-				errorCallBack.error(line, "invalid number of whitespace separated fields, must be >= 4", null);
-			}
-			return null;
-		}
-		String levelStr = line.substring(startPos, endPos);
-
-		// skip whitespace
-		startPos = findNonWhitespace(line, endPos + 1);
-		if (startPos < 0) {
-			if (errorCallBack != null) {
-				errorCallBack.error(line, "invalid number of whitespace separated fields, must be >= 4", null);
-			}
-			return null;
-		}
-		// find the type string
-		endPos = findWhitespaceWithoutEscape(line, startPos);
-		if (endPos < 0) {
-			if (errorCallBack != null) {
-				errorCallBack.error(line, "invalid number of whitespace separated fields, must be >= 4", null);
-			}
-			return null;
-		}
-		String typeStr = line.substring(startPos, endPos);
-
-		// skip whitespace
-		startPos = findNonWhitespace(line, endPos + 1);
-		if (startPos < 0) {
-			if (errorCallBack != null) {
-				errorCallBack.error(line, "invalid number of whitespace separated fields, must be >= 4", null);
-			}
-			return null;
-		}
-		// find the test string
-		endPos = findWhitespaceWithoutEscape(line, startPos);
-		if (endPos < 0) {
-			endPos = line.length();
-		}
-		String testStr = line.substring(startPos, endPos);
-
-		// skip any whitespace
-		startPos = findNonWhitespace(line, endPos + 1);
-		// format is optional, this could return length
-		if (startPos < 0) {
-			return new String[] { levelStr, typeStr, testStr };
-		} else {
-			// format is the rest of the line
-			return new String[] { levelStr, typeStr, testStr, line.substring(startPos) };
-		}
-	}
-
-	private static void handleSpecial(MagicEntry previous, String line, ErrorCallBack errorCallBack) {
-		if (line.equals(OPTIONAL_LINE)) {
-			previous.setOptional(true);
-			return;
-		}
-		int startPos = findNonWhitespace(line, 0);
-		int index = findWhitespaceWithoutEscape(line, startPos);
-		if (index < 0) {
-			if (errorCallBack != null) {
-				errorCallBack.error(line, "invalid extension line has less than 2 whitespace separated fields", null);
-			}
-			return;
-		}
-		String key = line.substring(startPos, index);
-		startPos = findNonWhitespace(line, index);
-		if (startPos < 0) {
-			if (errorCallBack != null) {
-				errorCallBack.error(line, "invalid extension line has less than 2 whitespace separated fields", null);
-			}
-			return;
-		}
-		// find whitespace after value, if any
-		index = findWhitespaceWithoutEscape(line, startPos);
-		if (index < 0) {
-			index = line.length();
-		}
-		String value = line.substring(startPos, index);
-
-		if (key.equals(MIME_TYPE_LINE)) {
-			previous.setMimeType(value);
-		} else {
-			// unknown extension key
-		}
-	}
-
-	private static int findNonWhitespace(String line, int startPos) {
-		for (int pos = startPos; pos < line.length(); pos++) {
-			if (!Character.isWhitespace(line.charAt(pos))) {
-				return pos;
-			}
-		}
-		return -1;
-	}
-
-	private static int findWhitespaceWithoutEscape(String line, int startPos) {
-		boolean lastEscape = false;
-		for (int pos = startPos; pos < line.length(); pos++) {
-			char ch = line.charAt(pos);
-			if (ch == ' ') {
-				if (!lastEscape) {
-					return pos;
+	
+	public static String[] splitLine(String line, int nosFields) {
+		ArrayList<String> parts = new ArrayList<String>();
+		StringBuilder part = new StringBuilder();
+		int pos = 0;
+		while (pos < line.length()) {
+			char ch = line.charAt(pos++);
+			if (Character.isWhitespace(ch)) {
+				if (parts.size() < nosFields - 1) {
+					if (part.length() > 0) {
+						parts.add(part.toString());
+						part.setLength(0);
+					}
+				} else if (part.length() > 0) {
+					part.append(ch);
 				}
-				lastEscape = false;
-			} else if (Character.isWhitespace(line.charAt(pos))) {
-				return pos;
 			} else if (ch == '\\') {
-				lastEscape = true;
+				// Interpretation of escapes is based on how 'file' does it; see
+				// https://github.com/file/file/blob/master/src/apprentice.c
+				if (pos < line.length()) {
+					ch = line.charAt(pos++);
+					switch (ch) {
+					case ' ': case '\\': case '>': case '<':
+					case '&': case '^': case '=': case '!':
+						part.append(ch);
+						break;
+					case 'n':
+						part.append('\n');
+						break;
+					case 'r':
+						part.append('\r');
+						break;
+					case 't':
+						part.append('\t');
+						break;
+					case 'b':
+						part.append('\b');
+						break;
+					case 'a':
+						part.append('\007');
+						break;
+					case 'f':
+						part.append('\f');
+						break;
+					case 'v':
+						part.append('\013');
+						break;
+					case '0': case '1': case '2': case '3':
+					case '4': case '5': case '6': case '7': 
+						StringBuilder octal = new StringBuilder(4);
+						octal.append(ch);
+						for (int i = 1; i <= 2; i++) {
+							if (pos < line.length() &&
+									(ch = line.charAt(pos)) >= '0' && ch <= '7') {
+								octal.append(ch);
+								pos++;
+							}
+						}
+						part.append((char)(Integer.parseInt(octal.toString(), 8) & 0xff));
+						break;
+					case 'x':
+						StringBuilder hex = new StringBuilder(4);
+						for (int i = 1; i <= 2 && pos < line.length(); i++) {
+							ch = line.charAt(pos);
+							if ((ch >= '0' && ch <= '9') ||
+									(ch >= 'A' && ch <= 'F') ||
+									(ch >= 'a' && ch <= 'f')) {
+								hex.append(ch);
+								pos++;
+							} else {
+								break;
+							}
+						}
+						if (hex.length() > 0) {
+							part.append((char)(Integer.parseInt(hex.toString(), 16) & 0xff));
+						} else {
+							part.append('x');
+						}
+						break;
+					default:
+						// Maybe should warn about these.
+						part.append(ch);
+					}
+				} else {
+					part.append(ch);
+				}
 			} else {
-				lastEscape = false;
+				part.append(ch);
 			}
 		}
-		return -1;
+		if (part.length() > 0) {
+			parts.add(part.toString());
+		}
+		return parts.toArray(new String[0]);
 	}
 
 	/**
