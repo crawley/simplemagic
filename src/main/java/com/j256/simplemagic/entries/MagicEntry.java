@@ -126,12 +126,18 @@ public class MagicEntry {
 	}
 
 	public String toString2() {
-		return toString() + ",addOffset " + addOffset +
+		StringBuilder sb = new StringBuilder(toString() + ",addOffset " + addOffset +
 			",offset " + offset + ",offsetInfo " + offsetInfo + 
 			",matcher " + matcher.getClass().getSimpleName() + 
 			",andValue " + andValue + ",unsignedType " + unsignedType + 
 			",formatSpacePrefix " + formatSpacePrefix +
-			",clearFormat " + clearFormat;
+			",clearFormat " + clearFormat);
+		if (children != null) {
+			for (MagicEntry entry: children) {
+				sb.append("\n").append(entry.toString2());
+			}
+		}
+		return sb.toString();
 	}
 
 	/**
@@ -265,6 +271,11 @@ public class MagicEntry {
 			} else {
 				return (int) (val + add);
 			}
+		}
+		
+		public String toString() {
+			return "[" + offset + "," + converter.getClass().getSimpleName() +
+					"," + isId3 + "," + size + "," + add + "]";
 		}
 	}
 }

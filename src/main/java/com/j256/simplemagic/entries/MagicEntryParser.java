@@ -55,7 +55,7 @@ public class MagicEntryParser {
 		// >7[ ]byte[ ]x[ ]\b.%c
 
 		String[] parts = splitLine(line, 4);
-		if (parts.length < 4) {
+		if (parts.length < 3) {
 			if (errorCallBack != null) {
 				errorCallBack.error(line, 
 						"invalid number of whitespace separated fields, must be >= 4", 

@@ -123,9 +123,17 @@ public class MagicEntryParserTest {
 		MagicEntry ent = MagicEntryParser.parseLine(
 				null, ">6	string		Exif		\b, EXIF standard", null);
 		assertEquals("level 1,name ',',test 'Exif',format ', EXIF standard'," +
-				"level 1,addOffset false,offset 6,offsetInfo null,matcher StringType," +
+				"addOffset false,offset 6,offsetInfo null,matcher StringType," +
 				"andValue null,unsignedType false,formatSpacePrefix false,clearFormat false", 
 				ent.toString2());
+	}
+	
+	@Test
+	public void testRegression() {
+		MagicEntry ent = MagicEntryParser.parseLine(
+				null, "0	string		\\<?xml\\ version=\"", null);
+		assertEquals("level 0,name 'unknown',test '<?xml version=\"'", 
+				ent.toString());
 	}
 	
 	@Test
@@ -175,6 +183,11 @@ public class MagicEntryParserTest {
 		assertEquals("string", parts[1]);
 		assertEquals("Exif", parts[2]);
 		assertEquals("\b, EXIF standard", parts[3]);
+		parts = MagicEntryParser.splitLine("0	string		\\<?xml\\ version=\"", 4);
+		assertEquals(3, parts.length);
+		assertEquals("0", parts[0]);
+		assertEquals("string", parts[1]);
+		assertEquals("<?xml version=\"", parts[2]);
 	}
 
 	private static class LocalErrorCallBack implements ErrorCallBack {
